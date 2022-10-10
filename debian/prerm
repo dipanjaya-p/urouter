@@ -1,0 +1,34 @@
+#!/bin/bash
+# --- Enable error detection. ---
+set -e
+
+# --- Set version of this package ---
+# shellcheck disable=SC2154
+THISVERSION="${deb.package.version}"
+
+# echo Pre-removal script version "$THISVERSION"
+# echo "   Parameters                  : $*"
+# echo "   Option                      : $1"
+# echo "   Currently installed version : $2"
+echo "   Version of this package     : $THISVERSION"
+
+case "$1" in
+    remove)
+        echo "   Stopping urouter Service"
+        systemctl stop urouter > /dev/null 2>&1 || true
+        ;;
+    upgrade)
+        echo "   removing absolute files for upgrade"
+        systemctl stop urouter > /dev/null 2>&1 || true
+#        rm -rf /etc/systemd/system/urouter.service  >> "${LOG}" 2>&1
+#        rm -rf /usr/bin/urouter  >> "${LOG}" 2>&1
+        ;;
+    fail-uprade)
+        echo "   upgrade failed"
+        ;;
+    *)
+        echo "   Option $1 not supported by this script."
+        ;;
+esac
+
+exit 0

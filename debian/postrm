@@ -1,0 +1,84 @@
+#!/bin/bash
+# --- Enable error detection. ---
+set -e
+
+# --- Set version of this package ---
+# shellcheck disable=SC2154
+THISVERSION="${deb.package.version}"
+INSTALL_DIR=/opt/router
+TIMESTAMP=$(date +%Y%m%d%H%M%S)
+LOG=/tmp/urouter_unistall_${TIMESTAMP}.log
+# shellcheck disable=SC1091
+. /usr/share/debconf/confmodule
+db_get urouter/install_type
+SELECTED_SERVICE=$RET
+#echo Post-removal script version "$THISVERSION"
+# echo "   Parameters                  : $*"
+# echo "   Option                      : $1"
+# echo "   Currently installed version : $2"
+ echo "   Version of this package     : $THISVERSION"
+postRemove() {
+if [ "$SELECTED_SERVICE" == "ROUTER" ]; then
+      #Restore back to the previous iptables rules
+      if [ -f "${INSTALL_DIR}/urouter/.data/iprules.txt" ]; then
+       iptables-restore <  ${INSTALL_DIR}/urouter/.data/iprules.txt >> "${LOG}" 2>&1
+       else 
+       echo "Restore back to the previous iptables rules file is missing" >> "${LOG}" 2>&1
+      fi
+  	fi
+    #Delete urouter directory if present
+    if [ -d "${INSTALL_DIR}/urouter/bin" ] ; then
+      rm -rf ${INSTALL_DIR}/urouter/bin/  
+    fi
+    if [ -d "${INSTALL_DIR}/urouter/logs" ] ; then
+      rm -rf ${INSTALL_DIR}/urouter/logs/  
+    fi
+    if [ -d "${INSTALL_DIR}/urouter/config" ] ; then
+      rm -rf ${INSTALL_DIR}/urouter/config/  
+    fi
+    if [ -d "${INSTALL_DIR}/urouter/scripts" ] ; then
+      rm -rf ${INSTALL_DIR}/urouter/scripts/  
+    fi
+    if [ -d "${INSTALL_DIR}/urouter/.data" ] ; then
+      rm -rf ${INSTALL_DIR}/urouter/.data/  
+    fi
+    if [ -d "${INSTALL_DIR}/urouter/install" ] ; then
+      rm -rf ${INSTALL_DIR}/urouter/install/  
+    fi
+    if [ -d "${INSTALL_DIR}/urouter" ] ; then
+      rm -rf ${INSTALL_DIR}/urouter/  
+    fi
+    if [ -d "/etc/urouter" ] ; then
+      rm -rf /etc/urouter/  
+    fi
+    if [ -d "${INSTALL_DIR}" ] ; then
+      rm -rf ${INSTALL_DIR}  
+    fi
+    
+    echo ""
+    echo "Uninstalling urouter... Done!"
+    exit 0
+
+}
+case "$1" in
+    remove)
+        echo "   removing urouter"
+        postRemove
+        ;;
+    purge)
+        echo "   purgeing urouter"
+        postRemove
+        ;;
+    upgrade)
+        echo "   removing absolute files for upgrade"
+        #rm -rf /etc/systemd/system/urouter.service  >> "${LOG}" 2>&1
+        #rm -rf /usr/bin/urouter  >> "${LOG}" 2>&1
+        #postRemove
+        ;;
+    *)
+        echo "   Option $1 not supported by this script."
+        ;;
+esac
+
+
+

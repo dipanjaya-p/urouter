@@ -1,0 +1,36 @@
+#!/bin/bash
+# --- Enable error detection. ---
+set -e
+TIMESTAMP=$(date +%Y%m%d%H%M%S)
+LOG=/tmp/urouter_upgrade_${TIMESTAMP}.log
+INSTALL_TYPE=/tmp/urouter_install.txt
+# --- Set version of this package ---
+# shellcheck disable=SC2154
+THISVERSION="${deb.package.version}"
+
+# echo Pre-installation script version "$THISVERSION"
+# echo "   Parameters                  : $*"
+# echo "   Option                      : $1"
+# echo "   Currently installed version : $2"
+echo "   Version of this package     : $THISVERSION"
+
+case "$1" in
+    install)
+        echo "   Installation  Started"
+        rm -rf "$INSTALL_TYPE" 2>&1
+        echo "install" > "$INSTALL_TYPE"
+        ;;
+    upgrade)
+        echo "   Stopping urouter Service"
+        rm -rf "$INSTALL_TYPE" 2>&1
+        echo "upgrade" > "$INSTALL_TYPE"
+        systemctl stop urouter > "$LOG" 2>&1
+        echo "Copying config files" > "$LOG" 2>&1
+        cp /opt/router/urouter/config/config.yaml /tmp/urouter_config  >> "$LOG" 2>&1
+        ;;
+    *)
+        echo "   Option $1 not supported by this script."
+        ;;
+esac
+
+exit 0

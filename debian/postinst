@@ -1,0 +1,41 @@
+#!/bin/bash
+# --- Enable error detection. ---
+set -e
+
+# --- Set version of this package ---
+# shellcheck disable=SC2154
+THISVERSION="${deb.package.version}"
+INSTALL_DIR=/opt/router
+TIMESTAMP=$(date +%Y%m%d%H%M%S)
+# echo Post-installation script version "$THISVERSION"
+# echo "   Parameters                  : $*"
+# echo "   Option                      : $1"
+# echo "   Currently installed version : $2"
+echo "   Version of this package     : $THISVERSION"
+INSTALL_TYPE=$(</tmp/urouter_install.txt)
+LOG=/tmp/urouter_${INSTALL_TYPE}_${TIMESTAMP}.log
+case "$1" in
+    configure)
+        echo "   configuring urouter : ${INSTALL_TYPE}"
+        bash ${INSTALL_DIR}/urouter/install/install.sh "${LOG}" "${INSTALL_TYPE}" "$THISVERSION" "$2" >> "${LOG}" 2>&1
+        mkdir -p ${INSTALL_DIR}/urouter/logs
+        #move the install log file
+        mv "${LOG}" ${INSTALL_DIR}/urouter/logs/
+        rm -rf /tmp/urouter_install.txt 2>&1
+        rm -rf /tmp/urouter_config 2>&1
+         #flush all cached filesystem to disk
+        sync
+        echo ""
+        echo "Finished. urouter has been installed to ${INSTALL_DIR}/urouter"
+        echo "Please reboot the system to take effect"
+        exit 0
+        ;;
+    abort-upgrade)
+        # --- If we exit here, too, dpkg will be "unhappy" ---
+        # --- It will mark the installed package as inconsistent ---
+        echo "   upgrade aborted"
+        ;;
+    *)
+        echo "   Option $1 not supported by this script."
+        ;;
+esac

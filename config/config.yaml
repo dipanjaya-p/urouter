@@ -1,0 +1,44 @@
+WAN:
+  interface: enp4S0
+  connectionType: DHCP
+WIRELESS:
+  interface: wlan0
+  enabled: true
+  wirelessMode: AP
+  ssid: TP-LINK_D7E7
+  wifiPassword: biligiri#45
+  apSsid: AEI_AP
+  apPassword: aei12345
+  mode: 11bn mixed
+  authType: Auto
+  encryption: AES
+LAN:
+  interface: br0
+  ipAddress: 192.168.10.1
+  mask: 255.255.255.0
+  ilist: enp0s8 enp0s9 enp0s10
+DHCP:
+  enabled: true
+  interface: br0
+  startIP: 192.168.10.100
+  endIP: 192.168.10.200
+  dhcpLeaseTime: '900'
+  dnsServers: 192.168.2.2,192.168.2.3
+  useWanDns: true
+RESERVATION: [
+]
+SERVICES:
+- !!com.utt.urouter.model.RouterService
+  enabled: '1'
+  endPort: '8443'
+  name: urouter webadmin
+  protocol: TCP
+  startPort: '8443'
+- !!com.utt.urouter.model.RouterService
+  enabled: '1'
+  endPort: '22'
+  name: SSH
+  protocol: TCP
+  startPort: '22'
+PORTFORWARD: [
+]

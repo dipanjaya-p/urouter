@@ -1,0 +1,9 @@
+Package: urouter
+Version: 1.0.0
+Maintainer: support@utthunga.com
+Description: Power Insight Embeded Router
+Homepage: https://git.utthunga.in/router/urouter
+Section: java
+Architecture: all
+Depends: debconf (>= 0.2.26)|debconf-2.0,openjdk-8-jre-headless|openjdk-8-jre|openjdk-8-jdk-headless|openjdk-8-jdk|java8-runtime-headless | java8-runtime,bridge-utils,isc-dhcp-server,net-tools,resolvconf,curl,netplug,ifupdown,wireless-tools,hostapd
+Conflicts: netplan.io,ifplugd

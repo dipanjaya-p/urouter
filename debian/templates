@@ -1,0 +1,38 @@
+Template: urouter/port
+Type: string
+Default: 8443
+Description: urouter HTTPS port:
+ Please enter the port which will be used by the urouter HTTPS server. Use an
+ available port that is not being used by another service.
+
+Template: urouter/port_used
+Type: boolean
+Default: true
+Description: Do you want to continue?
+ It seems that the port you have selected is already being used. You can
+ continue anyway or enter a new port.
+
+Template: urouter/install_type
+Type: select
+Choices: ROUTER, DHCP
+Default: ROUTER
+Description: Please Select the installation type
+
+Template: urouter/wan_port
+Type: select
+Choices: ${choices}
+Description: Please Select valid WAN PORT which has a internet connection available.
+ It seems that the WAN port is not able to identified by default.
+
+Template: urouter/ssid
+Type: select
+Choices: ${options}
+Description: Please Select WIFI Network has  internet connection .
+ It seems that the WIFI adapter is act as WAN port by default.
+
+Template: urouter/ssid_password
+Type: string
+Default: 
+Description: Please Enter valid password for WIFI Network previously selected.
+ password will used to Connect to selected SSID  
+

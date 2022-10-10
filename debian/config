@@ -1,0 +1,107 @@
+#!/bin/bash
+
+set -e
+# shellcheck disable=SC1091
+. /usr/share/debconf/confmodule
+
+db_fset urouter/install_type seen false
+db_fset urouter/port seen false
+db_fset urouter/wan_port seen false
+db_fset urouter/port_used seen false
+db_fset urouter/ssid seen false
+db_fset urouter/ssid_password seen false
+available_ports=$(find /sys/class/net -type l -not \( -lname '*ap0*' -or -lname '*virtual*' \)  -printf '%f\n' | xargs | sed -e 's/ /, /g')
+db_subst urouter/wan_port choices "$available_ports"
+
+conf_installation_type() {
+    db_input high urouter/install_type || true
+    db_go || true
+    db_get urouter/install_type
+    if [ "$RET" == "ROUTER" ]; then
+        WAN_PORT=$(ip route show | grep default | cut -d" " -f5 | xargs | cut -d" " -f1)
+        WIFI_PORT=$(iw dev | grep Interface | grep -v ap0 | awk '{print $2}')
+        ip link set $WIFI_PORT up
+        SUB=$WIFI_PORT
+        if [[ "$WAN_PORT" == *"$SUB"* ]]; then
+            SSIDS=$(iw dev "$WAN_PORT" scan | grep SSID: | grep -v '\x00' | cut -d':' -f2 |  sed -e 's/^/"/;s/$/"/' | xargs printf '"%s"', | tr -d '"' | sed  -e 's/,$//')
+            db_subst urouter/ssid options "$SSIDS"
+            conf_wan_ssid
+        fi
+        
+        if [[ -z "$WAN_PORT" ]]; then
+            conf_wan_port
+            db_get urouter/wan_port
+            WAN_PORT=$RET
+            if [[ "$WAN_PORT" == *"$SUB"* ]]; then
+               SSIDS=$(iw dev "$WAN_PORT" scan | grep SSID: | grep -v '\x00' | cut -d':' -f2  | sed -e 's/^/"/;s/$/"/' | xargs printf '"%s"',| tr -d '"' | sed  -e 's/,$//')
+               db_subst urouter/ssid options "$SSIDS"
+               conf_wan_ssid
+            fi
+        fi
+    fi
+}
+conf_wan_port() {
+    db_input critical urouter/wan_port || true
+    db_go || true
+}
+conf_wan_ssid() {
+    db_input critical urouter/ssid || true
+    db_go || true
+    conf_wan_ssid_password
+}
+conf_wan_ssid_password() {
+    db_input critical urouter/ssid_password || true
+    db_go || true
+}
+# Usage: check_port_available port_number
+check_port_available() {
+    check_port=$1
+
+    set +e
+
+    nc -z localhost "$check_port" 2>/dev/null
+    ret=$?
+
+    set -e
+    return $ret
+}
+
+# ask urouter web port
+conf_port() {
+    while true; do
+
+        db_input high urouter/port || true
+        db_go || true
+
+        db_get urouter/port
+        new_port="$RET"
+
+        # check if the entry is valid port number
+        # shellcheck disable=SC2001
+        nodigits="$(echo "$new_port" | sed 's/[[:digit:]]//g')"
+        if [ -n "$nodigits" ]; then
+            continue
+        fi
+
+        if [ "$new_port" -ge 65535 ] || [ "$new_port" -lt 1 ]; then
+            continue
+        fi
+
+        if check_port_available "$new_port"; then
+            db_input high urouter/port_used || true
+            db_go || true
+            db_get urouter/port_used
+            if [ "$RET" = "true" ]; then
+                break
+            fi
+        else
+            break
+        fi
+    done
+}
+
+if [ "$1" = reconfigure ] || [ -z "$2" ]; then
+    conf_installation_type
+    conf_port
+fi
+exit 0
