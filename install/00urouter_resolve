@@ -1,0 +1,52 @@
+#
+# Script fragment to make dhclient supply nameserver information to resolvconf
+#
+
+# Tips:
+# * Be careful about changing the environment since this is sourced
+# * This script fragment uses bash features
+# * As of isc-dhcp-client 4.2 the "reason" (for running the script) can be one of the following.
+#   (Listed on man page:) MEDIUM(0) PREINIT(0)  BOUND(M)  RENEW(M)  REBIND(M)  REBOOT(M)         EXPIRE(D)  FAIL(D) RELEASE(D)  STOP(D) NBI(-) TIMEOUT(M)
+#   (Also used in master script:)                                                                                                                         ARPCHECK(0), ARPSEND(0)
+#   (Also used in master script:)   PREINIT6(0) BOUND6(M) RENEW6(M) REBIND6(M)        DEPREF6(0) EXPIRE6(D)         RELEASE6(D) STOP6(D)
+#   (0) = master script does not run make_resolv_conf
+#   (M) = master script runs make_resolv_conf
+#   (D) = master script downs interface
+#   (-) = master script does nothing with this
+WAN_PORT=eno1
+DHCPD_CONFIG_FILE=/etc/dhcp/dhcpd.conf
+APPLICATION_CONFIG_FILE=/opt/router/urouter/config/config.yaml
+GET_DNS_FROM_WAN=1
+if [ -x /usr/bin/urouter ]; then
+  # For safety, first undefine the nasty default make_resolv_conf()
+  #make_resolv_conf() { :; }
+  #case "$reason" in
+  #BOUND | RENEW | REBIND | REBOOT | TIMEOUT)
+    # Define a resolvconf-compatible m_r_c() function
+    # It gets run later (or, in the TIMEOUT case, MAY get run later)
+    #make_resolv_conf() {
+      if [ ! "$interface" ]; then
+        return
+      fi
+      if [ "$GET_DNS_FROM_WAN" = "0" ]; then
+        return
+      fi
+      if [ "$interface" = "$WAN_PORT" ]; then
+        if [ -n "$new_domain_name_servers" ]; then
+          oldstate="$(mktemp)"
+          md5sum $DHCPD_CONFIG_FILE >"$oldstate" 2>/dev/null
+          DNS=$(echo "$new_domain_name_servers" | sed 's/ /,/g')
+          sed -i "s/option domain-name-servers.*$/option domain-name-servers ${DNS};/g" ${DHCPD_CONFIG_FILE}
+          sed -i "/DHCP:/{!b;n;n;n;n;n;n;s/dnsServers:.*/dnsServers: ${DNS},/}" ${APPLICATION_CONFIG_FILE}
+          newstate="$(mktemp)"
+          md5sum $DHCPD_CONFIG_FILE >"$newstate" 2>/dev/null
+          if ! cmp "$oldstate" "$newstate"; then
+            systemctl -q is-active isc-dhcp-server && systemctl restart isc-dhcp-server
+          fi
+          rm "$oldstate"
+          rm "$newstate"
+        fi
+      fi
+    #}
+    #;;
+fi

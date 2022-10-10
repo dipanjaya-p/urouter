@@ -1,0 +1,31 @@
+#!/bin/sh
+#
+# ifup hook script for resolvconf
+#
+# This file is part of the resolvconf package.
+#
+
+[ -x /usr/bin/urouter ] || exit 0
+WAN_PORT=eno1
+DHCPD_CONFIG_FILE=/etc/dhcp/dhcpd.conf
+APPLICATION_CONFIG_FILE=/opt/router/urouter/config/config.yaml
+GET_DNS_FROM_WAN=1
+if [ "$GET_DNS_FROM_WAN" = "1" ]; then
+  if [ "$IFACE" = "$WAN_PORT" ]; then
+    if [ -n "$IF_DNS_NAMESERVERS" ] ; then
+      oldstate="$(mktemp)"
+      md5sum $DHCPD_CONFIG_FILE > "$oldstate" 2> /dev/null
+      DNS=$(echo "$IF_DNS_NAMESERVERS" | sed 's/ /,/g')
+      sed -i "s/option domain-name-servers.*$/option domain-name-servers ${DNS};/g" ${DHCPD_CONFIG_FILE} 
+	    sed -i "/DHCP:/{!b;n;n;n;n;n;n;s/dnsServers:.*/dnsServers: ${DNS},/}" ${APPLICATION_CONFIG_FILE}
+      newstate="$(mktemp)" 
+      md5sum $DHCPD_CONFIG_FILE > "$newstate" 2> /dev/null
+      if ! cmp "$oldstate" "$newstate"; then
+        systemctl -q is-active isc-dhcp-server && systemctl restart isc-dhcp-server
+      fi 
+      rm "$oldstate"
+      rm "$newstate"
+    fi
+  fi
+fi
+exit 0

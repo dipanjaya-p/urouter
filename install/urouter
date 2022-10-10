@@ -1,0 +1,216 @@
+#!/bin/bash
+APPLICATION_PROPRTIES_FILE=/opt/router/urouter/config/application.properties
+DATAFILE=/opt/router/urouter/config/usercred.csv
+TEMPFILE=".tempcred.csv"
+CREATE="create"
+UPDATE="update"
+DISABLE="disable"
+
+main() {
+    ROOT_UID=0
+    if [ $UID == $ROOT_UID ]; then
+        clear    
+        case "$1" in
+            apply)
+            apply
+            ;;
+		  service)
+            enable_disable_service "$2"
+            ;;	
+          wireless)
+            enable_disable_wireless "$2"
+            ;;
+         version)
+            check_current_version 
+            ;;
+         credentials)
+         	shift
+        	user_account "$@"
+        	;;	
+            *)
+            echo "   Option '$1' not supported by this script."
+            echo "   Option supported are 'credentials' | 'apply' | 'service enable' | 'service disable'"
+            echo "   'wireless enable' | 'wireless disable'"
+            echo "   'version'"
+            
+            ;;
+        esac
+    else
+        echo -e "You Must be the ROOT to Perfom this Task!!! Please use sudo to run this"
+ 
+    fi
+}
+
+user_account(){
+	
+	INOPE=$1
+	
+	useropt=$2
+	pwopt=$4
+		
+	while echo $2 | grep -q ^-; do
+	    # Evaluating a user entered string!
+	    
+	    eval $( echo $2 | sed 's/^-//' )=$3
+	    shift
+	    shift
+	done
+
+	if [ "$INOPE" = "$CREATE" ]
+    then
+    
+	    if [ "$useropt" = "-user" ] && [ "$pwopt" = "-pw" ]
+		then
+	        LENGTH=1
+	        
+	        if [ ${#user} -lt 4 ]
+	        then
+	            LENGTH=0
+	            echo "Fail"
+	        fi
+	        
+	        if [ ${#pw} -lt 4 ]
+	        then
+	            LENGTH=0
+	            echo "Fail"
+	        fi
+	        
+	        if [ $LENGTH = 1 ]
+	        then
+	            if [ -f $DATAFILE ]
+	            then
+	                rm $DATAFILE
+	            fi
+	                        
+	            echo "$user,$pw,ENABLE" >> $DATAFILE
+	            echo "User credential created.."
+	        else
+	            echo "User credential not created.."
+	        fi
+ 		 else
+		 	echo Fail
+		 fi
+ 			
+        
+    elif [ "$INOPE" = "$UPDATE" ]
+    then
+    	if [ "$useropt" = "-user" ] && [ "$pwopt" = "-pw" ]
+		then
+	        if [ -f $DATAFILE ]
+	            then
+	                            
+	            while IFS=, read -r field1 field2 field3
+	            do
+	                currentcred="$user,$field2"
+	                break
+	            done < $DATAFILE
+	                        
+	            newcred="$user,$pw"
+	            
+	            sed 's/'$currentcred'/'$newcred'/1' $DATAFILE > $TEMPFILE
+	            mv $TEMPFILE $DATAFILE
+	            echo "User credential updated.."            
+	        fi
+        else
+		 	echo Fail
+		 fi
+        
+    elif [ "$INOPE" = "$DISABLE" ]
+    then
+        if [ -f $DATAFILE ]
+        then
+            sed 's/ENABLE/DISABLE/1' $DATAFILE > $TEMPFILE
+            mv $TEMPFILE $DATAFILE
+            echo "User credential disabled.."
+        fi
+    else
+        exit 0
+    fi
+}
+
+trim() {
+    local var="$*"
+    # remove leading whitespace characters
+    var="${var#"${var%%[![:space:]]*}"}"
+    # remove trailing whitespace characters
+    var="${var%"${var##*[![:space:]]}"}"
+    echo -n "$var"
+}
+prop() {
+    grep "${1}" "${APPLICATION_PROPRTIES_FILE}" | cut -d':' -f2
+}
+apply() {
+	if [ ! -x /usr/bin/curl ]; then
+            # some extra check if curl is not installed at the usual place
+            command -v curl >/dev/null 2>&1 || {
+                echo >&2 "Please install curl or set it in your path. Aborting."
+                exit 1
+            }
+    fi
+	PORT="$(trim "$(prop server.port)")"
+    result=$(curl -k -s -X GET --header "Accept: */*" "https://localhost:$PORT/api/applySettings")
+    (sleep 5) &
+    echo -n "Applying settings, please wait... "
+    spinner $!
+    echo " DONE"
+    echo "$result"
+	echo "Please reboot the system to take effect"
+    exit 0
+}
+spinner()
+{
+    local pid=$1
+    local delay=0.75
+    local spinstr='-\|/'
+   while kill -0 "$pid" 2>/dev/null
+    do
+        local temp=${spinstr#?}
+        printf " [%c]  " "$spinstr"
+        local spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+        printf "\b\b\b\b\b\b"
+    done
+    printf "    \b\b\b\b"
+}
+
+enable_disable_service() {
+	local enable=false
+	if [[ "$1" == "enable" ]]; then
+		enable=true
+	fi
+    sed -i "s+spring.application.router.service:.*+spring.application.router.service:${enable}+g" ${APPLICATION_PROPRTIES_FILE}
+	service urouter restart
+    (sleep 5) &
+    echo -n "$1ing service, please wait... "
+    spinner $!
+    echo " DONE"
+	echo "service settings $1d successfully "
+    exit 0
+}
+enable_disable_wireless() {
+	WIFI_PORT=$(/sbin/iw dev | grep Interface | grep -v ap0 | awk '{print $2}')
+	
+	local enable=false
+	if [[ "$1" == "enable" ]]; then
+		 if [  -z "$WIFI_PORT" ]; then
+		   echo "Sorry ,WIFI adapter not found.So,it will not enable the wireless"
+		   exit 1
+		 fi
+		enable=true
+	fi
+    sed -i "s+spring.application.router.wireless:.*+spring.application.router.wireless:${enable}+g" ${APPLICATION_PROPRTIES_FILE}
+	service urouter restart
+    (sleep 5) &
+    echo -n "$1ing wireless, please wait... "
+    spinner $!
+    echo " DONE"
+	echo "wireless settings $1d successfully "
+    exit 0
+}
+check_current_version(){
+THISVERSION="$(trim "$(prop spring.application.software.version)")"
+echo "urouter current version is $THISVERSION"
+}
+
+
+main "$@"

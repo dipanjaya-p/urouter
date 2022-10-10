@@ -1,0 +1,14 @@
+[Unit]
+Description=Urouter Service
+After=network.target
+
+[Service]
+Type=forking
+WorkingDirectory=/opt/router/urouter
+ExecStart=/opt/router/urouter/urouter.sh start
+ExecStop=/opt/router/urouter/urouter.sh stop
+ExecReload=/opt/router/urouter/urouter.sh restart
+SuccessExitStatus=143
+
+[Install]
+WantedBy=multi-user.target
